@@ -1,6 +1,5 @@
 import express from 'express';
-import { register, login, getUserProfile, updateUsername } from '../controllers/authController.js';
-
+import { register, login, getUserProfile, updateProfile } from '../controllers/authController.js';
 import { verifyToken } from '../middlewares/authMiddleware.js';
 
 const AuthRoutes = () => {
@@ -9,7 +8,7 @@ const AuthRoutes = () => {
   router.post('/register', register);
   router.post('/login', login);
   router.get('/user/me', verifyToken, getUserProfile);
-  router.patch('/user/update-username', verifyToken, updateUsername);
+  router.patch('/update-profile', verifyToken, updateProfile);
 
   return router;
 };

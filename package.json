@@ -4,12 +4,13 @@
   "description": "Backend for Premium Aspirant Focused Blog Platform",
   "main": "index.js",
   "type": "module",
-   
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "bcrpyt": "^2.0.0",
+    "bcrypt": "^6.0.0",
     "cloudinary": "^1.41.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

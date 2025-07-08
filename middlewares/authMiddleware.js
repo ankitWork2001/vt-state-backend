@@ -17,7 +17,7 @@ export const verifyToken = (req, res, next) => {
       new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })
     );
 
-    next();
+    next(); 
   } catch (error) {
     res.status(401).json({ message: 'Invalid token' });
   }
