@@ -4,7 +4,7 @@ import { subscribe } from '../controllers/newsletterController.js';
 const NewsletterRoutes = () => {
   const router = express.Router();
 
-  router.post('/', subscribe);
+  router.post('/subscribe', subscribe);
 
   return router;
 };

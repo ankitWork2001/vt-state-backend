@@ -1,5 +1,6 @@
 import cloudinary from 'cloudinary';
 import dotenv from 'dotenv';
+import { Readable } from 'stream';
 
 dotenv.config(); 
 cloudinary.v2.config({
@@ -10,13 +11,30 @@ cloudinary.v2.config({
 
 const uploadImage = async (fileBuffer, folder = 'blogs') => {
   try {
-    const result = await cloudinary.v2.uploader.upload(fileBuffer, {
-      folder,
-      resource_type: 'image',
-      format: 'jpg', 
+    // Convert buffer to a readable stream
+    const stream = Readable.from(fileBuffer);
+    
+    // Return a promise to handle the stream upload
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.v2.uploader.upload_stream(
+        {
+          folder,
+          resource_type: 'image',
+          format: 'jpg',
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            return reject(new Error('Failed to upload image'));
+          }
+          console.log('Image uploaded to Cloudinary successfully:', result.secure_url);
+          resolve(result.secure_url);
+        }
+      );
+
+      // Pipe the buffer stream to Cloudinary
+      stream.pipe(uploadStream);
     });
-    console.log('Image uploaded to Cloudinary successfully:', result.secure_url);
-    return result.secure_url;
   } catch (error) {
     console.error('Cloudinary upload error:', error);
     throw new Error('Failed to upload image');

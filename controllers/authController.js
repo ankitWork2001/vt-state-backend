@@ -1,24 +1,84 @@
 import bcrypt from 'bcrypt';
 import User from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
+import { sendEmail } from '../config/mailsend.js';
+import Blog from '../models/blogModel.js'; 
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+const OTP_VALIDITY = 10 * 60 * 1000; // 10 minutes
+const otpStore = new Map(); // OTP storage for registration
+const passwordResetOtpStore = new Map(); // OTP storage for password reset
+
+// Generate 6-digit OTP
+const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+export const requestOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    // Generate and store OTP
+    const otp = generateOtp();
+    const expires = Date.now() + OTP_VALIDITY;
+    otpStore.set(email, { otp, expires });
+
+    // Send OTP email
+    const subject = 'Verify Your Email';
+    const message = `Your OTP for registration is: <b>${otp}</b>. It is valid for 10 minutes.`;
+    await sendEmail(email, subject, message);
+
+    console.log('Request OTP called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({ message: 'OTP sent to email' });
+  } catch (error) {
+    console.error('Request OTP error:', error);
+    res.status(500).json({ message: 'Failed to send OTP' });
+  }
+};
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
-    
+    const { username, email, password, otp } = req.body;
+
+    if (!username || !email || !password || !otp) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ message: 'Username must be at least 3 characters long' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
+    // Verify OTP
+    const storedOtpData = otpStore.get(email);
+    if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Create new user
+    // Create user
     const user = new User({
       username,
       email,
@@ -26,7 +86,10 @@ export const register = async (req, res) => {
     });
 
     await user.save();
-    
+
+    // Clear OTP
+    otpStore.delete(email);
+
     console.log('Register called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
@@ -35,9 +98,87 @@ export const register = async (req, res) => {
   }
 };
 
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Generate and store OTP
+    const otp = generateOtp();
+    const expires = Date.now() + OTP_VALIDITY;
+    passwordResetOtpStore.set(email, { otp, expires });
+
+    // Send OTP email
+    const subject = 'Password Reset OTP';
+    const message = `Your OTP for password reset is: <b>${otp}</b>. It is valid for 10 minutes.`;
+    await sendEmail(email, subject, message);
+
+    console.log('Forgot Password called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({ message: 'OTP sent to email for password reset' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error during password reset request' });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters long' });
+    }
+
+    const storedOtpData = passwordResetOtpStore.get(email);
+    if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if new password is same as old
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({ message: 'New password cannot be the same as the old password' });
+    }
+
+    // Update password
+    user.password = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await user.save();
+
+    // Clear OTP
+    passwordResetOtpStore.delete(email);
+
+    console.log('Reset Password called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error during password reset' });
+  }
+};
+
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
 
     // Find user
     const user = await User.findOne({ email });
