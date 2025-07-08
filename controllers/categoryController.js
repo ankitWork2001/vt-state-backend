@@ -1,31 +1,240 @@
-// controllers/categoryController.js
+import CategoryModel from "../models/categoryModel.js";
+import SubcategoryModel from "../models/subcategoryModel.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
-export const createCategory = (req, res) => {
-  console.log('Create Category called at', new Date().toLocaleString());
-  res.status(201).json({ message: 'Category created successfully' });
+// Create Category
+export const createCategory = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    // Validate input
+    if (!name || !description) {
+      const error = new ApiError(400, "Name and description are required");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
+
+    // Check if category already exists
+    const existingCategory = await CategoryModel.findOne({ name });
+    if (existingCategory) {
+      const error = new ApiError(400, "Category already exists");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
+
+    // Create new category
+    const newCategory = new CategoryModel({
+      name,
+      description,
+    });
+
+    // Save the new category to the database
+    await newCategory.save();
+
+    // Return success response
+    const response = new ApiResponse(
+      201,
+      "Category created successfully",
+      newCategory
+    );
+    return res.status(response.statusCode).json(response);
+  } catch (error) {
+    // Handle  errors
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
 };
 
-export const createSubcategory = (req, res) => {
-  console.log('Create Subcategory called at', new Date().toLocaleString());
-  res.status(201).json({ message: 'Subcategory created successfully' });
+// Create Subcategory
+export const createSubcategory = async (req, res) => {
+  try {
+    const { name, categoryId } = req.body;
+
+    // Validate input
+    if (!name || !categoryId) {
+      const error = new ApiError(400, "Name and category ID are required");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
+
+    // Check if the provided category exists
+    const category = await CategoryModel.findById(categoryId);
+    if (!category) {
+      const error = new ApiError(404, "Category not found");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
+
+    // Create new subcategory
+    const newSubcategory = new SubcategoryModel({
+      name,
+      categoryId,
+    });
+
+    // Save the new subcategory to the database
+    await newSubcategory.save();
+
+    // Return success response
+    const response = new ApiResponse(
+      201,
+      "Subcategory created successfully",
+      newSubcategory
+    );
+    return res.status(response.statusCode).json(response);
+  } catch (error) {
+    // Handle  errors
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
 };
 
-export const getAllCategories = (req, res) => {
-  console.log('Get All Categories called at', new Date().toLocaleString());
-  res.status(200).json({ message: 'Fetched all categories' });
+// Get All Categories
+export const getAllCategories = async (req, res) => {
+  try {
+    // Fetch all categories from the database
+    const categories = await CategoryModel.find();
+
+    // Return success response with fetched categories
+    const response = new ApiResponse(200, "Fetched all categories", categories);
+    return res.status(response.statusCode).json(response);
+  } catch (error) {
+    // Handle unexpected errors
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
 };
 
-export const updateCategory = (req, res) => {
-  console.log('Update Category called at', new Date().toLocaleString());
-  res.status(200).json({ message: 'Category updated successfully' });
+// Update Category
+export const updateCategory = async (req, res) => {
+  try {
+    const { id } = req.params; // Extract category ID  params
+    const { name, description } = req.body;
+    // Check if the category exists
+    const category = await CategoryModel.findById(id);
+    if (!category) {
+      const error = new ApiError(404, "Category not found");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
+
+    // Update the category details
+    category.name = name || category.name;
+    category.description = description || category.description;
+
+    // Save the updated
+    await category.save();
+
+    // Return success response
+    const response = new ApiResponse(
+      200,
+      "Category updated successfully",
+      category
+    );
+    return res.status(response.statusCode).json(response);
+  } catch (error) {
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
 };
 
-export const deleteCategory = (req, res) => {
-  console.log('Delete Category called at', new Date().toLocaleString());
-  res.status(200).json({ message: 'Category deleted successfully' });
+// Delete Category
+export const deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if category exists
+    const category = await CategoryModel.findById(id);
+    if (!category) {
+      const error = new ApiError(404, "Category not found");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
+
+    // Remove the category from the database
+    await category.deleteOne();
+
+    // Return success response after deletion
+    const response = new ApiResponse(200, "Category deleted successfully");
+    return res.status(response.statusCode).json(response);
+  } catch (error) {
+    // Handle unexpected errors
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
 };
 
-export const deleteSubcategory = (req, res) => {
-  console.log('Delete Subcategory called at', new Date().toLocaleString());
-  res.status(200).json({ message: 'Subcategory deleted successfully' });
+// Delete Subcategory
+export const deleteSubcategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if subcategory exists
+    const subcategory = await SubcategoryModel.findById(id);
+    if (!subcategory) {
+      const error = new ApiError(404, "Subcategory not found");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
+
+    // Remove the subcategory from the database
+    await subcategory.deleteOne();
+
+    // Return success response after deletion
+    const response = new ApiResponse(200, "Subcategory deleted successfully");
+    return res.status(response.statusCode).json(response);
+  } catch (error) {
+    // Handle unexpected errors
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
 };
