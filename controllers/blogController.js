@@ -27,9 +27,11 @@ export const createBlog = async (req, res) => {
     }
 
     // Validate categoryId
-    const category = await Category.findById(categoryId);
-    if (!category) {
-      return res.status(400).json({ message: 'Invalid categoryId: Category not found' });
+    if(categoryId){
+      const category = await Category.findById(categoryId);
+      if (!category) {
+        return res.status(400).json({ message: 'Invalid categoryId: Category not found' });
+      }
     }
 
     // Validate subcategoryId if provided
@@ -74,7 +76,8 @@ export const updateBlog = async (req, res) => {
     console.log('Thumbnail file:', thumbnail ? 'Present' : 'Missing');
 
     // Fetch the existing blog to validate categoryId
-    const existingBlog = await Blog.findById(req.params.id);
+    const blogId = req.params.id;
+    const existingBlog = await Blog.findById(blogId);
     if (!existingBlog) {
       return res.status(404).json({ message: 'Blog not found' });
     }
@@ -98,17 +101,14 @@ export const updateBlog = async (req, res) => {
     }
     updateData.categoryId = finalCategoryId;
 
-    // Validate subcategoryId if provided
-    if (typeof subcategoryId !== 'undefined') {
-      if (subcategoryId === null) {
-        updateData.subcategoryId = null;
-      } else {
+    // Validate subcategoryId if provided  
+    updateData.subcategoryId = null
+    if (subcategoryId !== null) {
         const subcategory = await Subcategory.findById(subcategoryId);
         if (!subcategory) {
           return res.status(400).json({ message: 'Invalid subcategoryId: Subcategory not found' });
         }
         updateData.subcategoryId = subcategoryId;
-      }
     }
 
     // Update thumbnail if provided
