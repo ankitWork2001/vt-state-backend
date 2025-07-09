@@ -1,5 +1,5 @@
 import express from 'express';
-import { createCategory, createSubcategory, getAllCategories, updateCategory, deleteCategory, deleteSubcategory } from '../controllers/categoryController.js';
+import { createCategory, createSubcategory, getAllCategories, updateCategory, updateSubCategory, deleteCategory, deleteSubcategory } from '../controllers/categoryController.js';
 import { verifyToken, isAdmin } from '../middlewares/authMiddleware.js';
 
 const CategoryRoutes = () => {
@@ -9,6 +9,7 @@ const CategoryRoutes = () => {
   router.post('/:categoryId/subcategories', verifyToken, isAdmin, createSubcategory);
   router.get('/', getAllCategories);
   router.put('/:id', verifyToken, isAdmin, updateCategory);
+  router.put('/subcategories/:subcategoryId', verifyToken, isAdmin, updateSubCategory);
   router.delete('/:id', verifyToken, isAdmin, deleteCategory);
   router.delete('/subcategories/:id', verifyToken, isAdmin, deleteSubcategory);
 
