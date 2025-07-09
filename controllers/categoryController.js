@@ -58,7 +58,8 @@ export const createCategory = async (req, res) => {
 // Create Subcategory
 export const createSubcategory = async (req, res) => {
   try {
-    const { name, categoryId } = req.body;
+    const { name } = req.body;
+    const { categoryId} = req.params;
 
     // Validate input
     if (!name || !categoryId) {
