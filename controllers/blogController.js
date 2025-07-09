@@ -1,7 +1,7 @@
 import Blog from '../models/blogModel.js';
 import User from '../models/userModel.js';
-import categoryModel from '../models/categoryModel.js';
-import subcategoryModel from '../models/subcategoryModel.js';
+import Category from '../models/categoryModel.js';
+import Subcategory from '../models/subcategoryModel.js';
 import cloudinaryUtils from '../config/cloudinary.js';
 
 export const createBlog = async (req, res) => {
@@ -26,13 +26,27 @@ export const createBlog = async (req, res) => {
       return res.status(400).json({ message: 'Language must be English or Hindi' });
     }
 
+    // Validate categoryId
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(400).json({ message: 'Invalid categoryId: Category not found' });
+    }
+
+    // Validate subcategoryId if provided
+    if (subcategoryId) {
+      const subcategory = await Subcategory.findById(subcategoryId);
+      if (!subcategory) {
+        return res.status(400).json({ message: 'Invalid subcategoryId: Subcategory not found' });
+      }
+    }
+
     // Upload thumbnail using cloudinary.js
     const thumbnailUrl = await cloudinaryUtils.uploadImage(thumbnail.buffer, 'blog_thumbnails');
 
     // Create blog
     const blog = new Blog({
-      title,
-      content,
+      title: title.trim(),
+      content: content.trim(),
       tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
       language,
       categoryId,
@@ -47,6 +61,78 @@ export const createBlog = async (req, res) => {
   } catch (error) {
     console.error('Create blog error:', error);
     res.status(500).json({ message: 'Server error creating blog' });
+  }
+};
+
+export const updateBlog = async (req, res) => {
+  try {
+    const { title, content, tags, language, categoryId, subcategoryId } = req.body;
+    const thumbnail = req.file;
+
+    // Log request body for debugging
+    console.log('Update Blog request body:', { title, content, tags, language, categoryId, subcategoryId });
+    console.log('Thumbnail file:', thumbnail ? 'Present' : 'Missing');
+
+    // Fetch the existing blog to validate categoryId
+    const existingBlog = await Blog.findById(req.params.id);
+    if (!existingBlog) {
+      return res.status(404).json({ message: 'Blog not found' });
+    }
+
+    const updateData = {};
+    if (title) updateData.title = title.trim();
+    if (content) updateData.content = content.trim();
+    if (tags) updateData.tags = tags.split(',').map(tag => tag.trim());
+    if (language) {
+      if (!['English', 'Hindi'].includes(language)) {
+        return res.status(400).json({ message: 'Language must be English or Hindi' });
+      }
+      updateData.language = language;
+    }
+
+    // Validate categoryId (use provided or existing)
+    const finalCategoryId = categoryId || existingBlog.categoryId;
+    const category = await Category.findById(finalCategoryId);
+    if (!category) {
+      return res.status(400).json({ message: 'Invalid categoryId: Category not found' });
+    }
+    updateData.categoryId = finalCategoryId;
+
+    // Validate subcategoryId if provided
+    if (typeof subcategoryId !== 'undefined') {
+      if (subcategoryId === null) {
+        updateData.subcategoryId = null;
+      } else {
+        const subcategory = await Subcategory.findById(subcategoryId);
+        if (!subcategory) {
+          return res.status(400).json({ message: 'Invalid subcategoryId: Subcategory not found' });
+        }
+        updateData.subcategoryId = subcategoryId;
+      }
+    }
+
+    // Update thumbnail if provided
+    if (thumbnail) {
+      const thumbnailUrl = await cloudinaryUtils.uploadImage(thumbnail.buffer, 'blog_thumbnails');
+      updateData.thumbnail = thumbnailUrl;
+    }
+
+    // Ensure at least one field is provided for update
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No valid fields provided for update' });
+    }
+
+    const blog = await Blog.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true }
+    ).populate('categoryId', 'name').populate('subcategoryId', 'name').populate('author', 'username');
+
+    console.log('Update Blog called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({ message: 'Blog updated successfully', blog });
+  } catch (error) {
+    console.error('Update blog error:', error);
+    res.status(500).json({ message: 'Server error updating blog' });
   }
 };
 
@@ -100,52 +186,6 @@ export const getBlogById = async (req, res) => {
   } catch (error) {
     console.error('Get blog by ID error:', error);
     res.status(500).json({ message: 'Server error fetching blog' });
-  }
-};
-
-export const updateBlog = async (req, res) => {
-  try {
-    const { title, content, tags, language, categoryId, subcategoryId } = req.body;
-    const thumbnail = req.file;
-
-    // Log request body for debugging
-    console.log('Update Blog request body:', { title, content, tags, language, categoryId, subcategoryId });
-    console.log('Thumbnail file:', thumbnail ? 'Present' : 'Missing');
-
-    const updateData = {};
-    if (title) updateData.title = title;
-    if (content) updateData.content = content;
-    if (tags) updateData.tags = tags.split(',').map(tag => tag.trim());
-    if (language) {
-      if (!['English', 'Hindi'].includes(language)) {
-        return res.status(400).json({ message: 'Language must be English or Hindi' });
-      }
-      updateData.language = language;
-    }
-    if (categoryId) updateData.categoryId = categoryId;
-    if (subcategoryId) updateData.subcategoryId = subcategoryId;
-
-    // Update thumbnail if provided
-    if (thumbnail) {
-      const thumbnailUrl = await cloudinaryUtils.uploadImage(thumbnail.buffer, 'blog_thumbnails');
-      updateData.thumbnail = thumbnailUrl;
-    }
-
-    const blog = await Blog.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
-      { new: true }
-    ).populate('categoryId', 'name').populate('subcategoryId', 'name').populate('author', 'username');
-
-    if (!blog) {
-      return res.status(404).json({ message: 'Blog not found' });
-    }
-
-    console.log('Update Blog called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    res.status(200).json({ message: 'Blog updated successfully', blog });
-  } catch (error) {
-    console.error('Update blog error:', error);
-    res.status(500).json({ message: 'Server error updating blog' });
   }
 };
 
