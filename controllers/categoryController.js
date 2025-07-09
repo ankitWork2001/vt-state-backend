@@ -1,4 +1,6 @@
+import blogModel from "../models/blogModel.js";
 import CategoryModel from "../models/categoryModel.js";
+import subcategoryModel from "../models/subcategoryModel.js";
 import SubcategoryModel from "../models/subcategoryModel.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -108,17 +110,35 @@ export const createSubcategory = async (req, res) => {
   }
 };
 
-// Get All Categories
-export const getAllCategories = async (req, res) => {
+//update SubCategory
+export const updateSubCategory = async (req, res) => {
   try {
-    // Fetch all categories from the database
-    const categories = await CategoryModel.find();
+    const { subcategoryId } = req.params; // Extract category ID  params
+    const { name, description } = req.body;
+    // Check if the category exists
+    const subcategory = await subcategoryModel.findById(subcategoryId);
+    if (!subcategory) {
+      const error = new ApiError(404, "SubCategory not found");
+      return res
+        .status(error.statusCode)
+        .json(new ApiResponse(error.statusCode, error.message));
+    }
 
-    // Return success response with fetched categories
-    const response = new ApiResponse(200, "Fetched all categories", categories);
+    // Update the category details
+    subcategory.name = name || subcategory.name;
+    subcategory.description = description || subcategory.description;
+
+    // Save the updated
+    await subcategory.save();
+
+    // Return success response
+    const response = new ApiResponse(
+      200,
+      "subCategory updated successfully",
+      subcategory
+    );
     return res.status(response.statusCode).json(response);
   } catch (error) {
-    // Handle unexpected errors
     const err = new ApiError(
       500,
       "Internal Server Error",
@@ -130,6 +150,47 @@ export const getAllCategories = async (req, res) => {
       .json(new ApiResponse(err.statusCode, err.message));
   }
 };
+
+
+// Get All Categories with Subcategories 
+export const getAllCategories = async (req, res) => {
+  try {
+    // Fetch all categories
+    const categories = await CategoryModel.find().lean(); // use .lean() for plain JS objects
+
+    // Fetch subcategories and group them by categoryId
+    const subcategories = await SubcategoryModel.find({}, "name categoryId").lean();
+
+    const groupedSubcategories = subcategories.reduce((acc, subcat) => {
+      const key = subcat.categoryId.toString();
+      if (!acc[key]) acc[key] = [];
+      acc[key].push({ id: subcat._id, name: subcat.name });
+      return acc;
+    }, {});
+
+    // Map categories to include only required fields and attach subcategories
+    const formattedCategories = categories.map((cat) => ({
+      id: cat._id,
+      name: cat.name,
+      subcategories: groupedSubcategories[cat._id.toString()] || [],
+    }));
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, "Fetched all categories", formattedCategories));
+  } catch (error) {
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
+};
+
 
 // Update Category
 export const updateCategory = async (req, res) => {
@@ -186,6 +247,22 @@ export const deleteCategory = async (req, res) => {
         .json(new ApiResponse(error.statusCode, error.message));
     }
 
+    const blogExists = await blogModel().exists({ categoryId: id });
+      if (blogExists) {
+        return res
+          .status(400)
+          .json(new ApiResponse(400, 'Category ${id} contains related blogs. Delete them first.'));
+      }
+
+      // Check for related subcategories
+      const subcategoryExists = await SubcategoryModel().exists({ categoryId: id });
+      if (subcategoryExists) {
+        return res
+          .status(400)
+          .json(new ApiResponse(400, 'Category ${id} contains related subcategories. Delete them first.'));
+    }
+
+
     // Remove the category from the database
     await category.deleteOne();
 
@@ -205,6 +282,47 @@ export const deleteCategory = async (req, res) => {
       .json(new ApiResponse(err.statusCode, err.message));
   }
 };
+
+
+// Update Subcategory
+export const updateSubcategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json(
+        new ApiResponse(400, "Subcategory name is required")
+      );
+    }
+
+    const subcategory = await SubcategoryModel.findById(id);
+
+    if (!subcategory) {
+      return res.status(404).json(
+        new ApiResponse(404, "Subcategory not found")
+      );
+    }
+
+    subcategory.name = name;
+    await subcategory.save();
+
+    return res.status(200).json(
+      new ApiResponse(200, "Subcategory updated successfully", subcategory)
+    );
+  } catch (error) {
+    const err = new ApiError(
+      500,
+      "Internal Server Error",
+      [error.message],
+      error.stack
+    );
+    return res
+      .status(err.statusCode)
+      .json(new ApiResponse(err.statusCode, err.message));
+  }
+};
+
 
 // Delete Subcategory
 export const deleteSubcategory = async (req, res) => {

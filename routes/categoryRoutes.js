@@ -9,7 +9,6 @@ const CategoryRoutes = () => {
   router.post('/:categoryId/subcategories', verifyToken, isAdmin, createSubcategory);
   router.get('/', getAllCategories);
   router.put('/:id', verifyToken, isAdmin, updateCategory);
-  
   router.delete('/:id', verifyToken, isAdmin, deleteCategory);
   router.delete('/subcategories/:id', verifyToken, isAdmin, deleteSubcategory);
 
