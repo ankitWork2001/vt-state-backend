@@ -110,53 +110,12 @@ export const createSubcategory = async (req, res) => {
   }
 };
 
-//update SubCategory
-export const updateSubCategory = async (req, res) => {
-  try {
-    const { subcategoryId } = req.params; // Extract category ID  params
-    const { name, description } = req.body;
-    // Check if the category exists
-    const subcategory = await subcategoryModel.findById(subcategoryId);
-    if (!subcategory) {
-      const error = new ApiError(404, "SubCategory not found");
-      return res
-        .status(error.statusCode)
-        .json(new ApiResponse(error.statusCode, error.message));
-    }
-
-    // Update the category details
-    subcategory.name = name || subcategory.name;
-    subcategory.description = description || subcategory.description;
-
-    // Save the updated
-    await subcategory.save();
-
-    // Return success response
-    const response = new ApiResponse(
-      200,
-      "subCategory updated successfully",
-      subcategory
-    );
-    return res.status(response.statusCode).json(response);
-  } catch (error) {
-    const err = new ApiError(
-      500,
-      "Internal Server Error",
-      [error.message],
-      error.stack
-    );
-    return res
-      .status(err.statusCode)
-      .json(new ApiResponse(err.statusCode, err.message));
-  }
-};
-
 
 // Get All Categories with Subcategories 
 export const getAllCategories = async (req, res) => {
   try {
     // Fetch all categories
-    const categories = await CategoryModel.find().lean(); // use .lean() for plain JS objects
+    const categories = await CategoryModel.find().lean(); // use `.lean()` for plain JS objects
 
     // Fetch subcategories and group them by categoryId
     const subcategories = await SubcategoryModel.find({}, "name categoryId").lean();
