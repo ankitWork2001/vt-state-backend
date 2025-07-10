@@ -115,7 +115,8 @@ export const getWebsiteOverview = async (req, res) => {
 // Article Analytics
 export const getArticleAnalytics = async (req, res) => {
   try {
-    const { articleId } = req.params;
+    const { id } = req.params;
+    const articleId = id;
 
     if (!articleId) {
       return res
