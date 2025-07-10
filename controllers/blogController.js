@@ -138,11 +138,11 @@ export const updateBlog = async (req, res) => {
 
 export const getAllBlogs = async (req, res) => {
   try {
-    const { category, subCategory, page = 1, limit = 10 } = req.query;
+    const { category, subcategory, page = 1, limit = 10 } = req.query;
     const query = {};
 
     if (category) query.categoryId = category;
-    if (subCategory) query.subcategoryId = subCategory;
+    if (subcategory) query.subcategoryId = subcategory;
 
     const blogs = await Blog.find(query)
       .populate('categoryId', 'name')
@@ -150,14 +150,20 @@ export const getAllBlogs = async (req, res) => {
       .populate('author', 'username')
       .skip((page - 1) * limit)
       .limit(Number(limit))
-      .select('title thumbnail language createdAt');
+      .select('title content thumbnail language createdAt');
+
+    // Trim content to 400 characters
+    const trimmedBlogs = blogs.map(blog => ({
+      ...blog._doc,
+      content: blog.content.length > 400 ? blog.content.substring(0, 400) : blog.content
+    }));
 
     const total = await Blog.countDocuments(query);
 
     console.log('Get All Blogs called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     res.status(200).json({
       message: 'Fetched all blogs',
-      blogs,
+      blogs: trimmedBlogs,
       total,
       page: Number(page),
       pages: Math.ceil(total / limit)
@@ -173,7 +179,7 @@ export const getBlogById = async (req, res) => {
     const blog = await Blog.findById(req.params.id)
       .populate('categoryId', 'name description')
       .populate('subcategoryId', 'name')
-      .populate('author', 'username')
+      .populate('author', 'username profilePic')
       .populate('likes', 'username')
       .populate('bookmarks', 'username');
 
@@ -267,7 +273,7 @@ export const bookmarkBlog = async (req, res) => {
     await Promise.all([blog.save(), user.save()]);
 
     console.log('Bookmark Blog called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    res.status(200).json({ message: 'Blog bookmarked successfully' });
+    res.Status(200).json({ message: 'Blog bookmarked successfully' });
   } catch (error) {
     console.error('Bookmark blog error:', error);
     res.status(500).json({ message: 'Server error bookmarking blog' });

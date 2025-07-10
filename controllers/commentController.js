@@ -47,7 +47,7 @@ export const getBlogComments = async (req, res) => {
 
     // Fetch comments with pagination
     const comments = await Comment.find({ blogId })
-      .populate('userId', 'username')
+      .populate('userId', 'username profilePic')
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .select('comment createdAt');

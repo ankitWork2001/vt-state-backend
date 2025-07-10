@@ -3,6 +3,8 @@ import User from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
 import { sendEmail } from '../config/mailsend.js';
 import Blog from '../models/blogModel.js'; 
+import { Admin } from 'mongodb';
+import { isAdmin } from '../middlewares/authMiddleware.js';
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -12,6 +14,16 @@ const passwordResetOtpStore = new Map(); // OTP storage for password reset
 
 // Generate 6-digit OTP
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// Cleanup expired OTPs from passwordResetOtpStore
+const cleanupExpiredOtps = () => {
+  const now = Date.now();
+  for (const [email, data] of passwordResetOtpStore.entries()) {
+    if (data.expires < now) {
+      passwordResetOtpStore.delete(email);
+    }
+  }
+};
 
 export const requestOtp = async (req, res) => {
   try {
@@ -114,12 +126,15 @@ export const forgotPassword = async (req, res) => {
     // Generate and store OTP
     const otp = generateOtp();
     const expires = Date.now() + OTP_VALIDITY;
-    passwordResetOtpStore.set(email, { otp, expires });
+    passwordResetOtpStore.set(email, { otp, expires, isVerified: false });
 
     // Send OTP email
     const subject = 'Password Reset OTP';
     const message = `Your OTP for password reset is: <b>${otp}</b>. It is valid for 10 minutes.`;
     await sendEmail(email, subject, message);
+
+    // Cleanup expired OTPs
+    cleanupExpiredOtps();
 
     console.log('Forgot Password called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     res.status(200).json({ message: 'OTP sent to email for password reset' });
@@ -129,21 +144,55 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    // Clean up expired OTPs
+    cleanupExpiredOtps();
+
+    // Verify OTP
+    const storedOtpData = passwordResetOtpStore.get(email);
+    if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    // Mark OTP as verified
+    passwordResetOtpStore.set(email, { ...storedOtpData, isVerified: true });
+
+    console.log('Verify OTP called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ message: 'Server error verifying OTP' });
+  }
+};
+
 export const resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    const { email, newPassword, confirmPassword } = req.body;
 
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!email || !newPassword) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
 
     if (newPassword.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters long' });
     }
 
+    
+
+    // Clean up expired OTPs
+    cleanupExpiredOtps();
+
+    // Check if OTP is verified
     const storedOtpData = passwordResetOtpStore.get(email);
-    if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    if (!storedOtpData || !storedOtpData.isVerified) {
+      return res.status(400).json({ message: 'OTP not verified' });
     }
 
     const user = await User.findOne({ email });
@@ -203,7 +252,7 @@ export const login = async (req, res) => {
     res.status(200).json({ 
       message: 'User logged in successfully',
       token,
-      user: { username: user.username, email: user.email }
+      user: { username: user.username, email: user.email, isAdmin: user.isAdmin ,profilePic:user.profilePic}  
     });
   } catch (error) {
     console.error('Login error:', error);
