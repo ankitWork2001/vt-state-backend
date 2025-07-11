@@ -9,11 +9,11 @@ export const submitContact = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    const findUser = await User.findOne({ email }).lean();
+    // const findUser = await User.findOne({ email }).lean();
 
-    if (!findUser) {
-      return res.status(400).json({ message: 'You are not registered' });
-    }
+    // if (!findUser) {
+    //   return res.status(400).json({ message: 'You are not registered' });
+    // }
 
     const newContact = await Contact.create({ name, email, message });
 
@@ -24,7 +24,7 @@ export const submitContact = async (req, res) => {
     console.log('Submit Contact called at', new Date().toLocaleString());
 
     return res.status(200).json({
-      newContact,
+
       message: 'Contact form submitted successfully',
     });
   } catch (error) {
