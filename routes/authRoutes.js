@@ -1,6 +1,9 @@
 import express from 'express';
-import { requestOtp, register, login, getUserProfile, updateProfile, forgotPassword, resetPassword, verifyOtp } from '../controllers/authController.js';
+import { requestOtp, register, login, getUserProfile, updateProfile, forgotPassword, verifyOtp, resetPassword } from '../controllers/authController.js';
 import { verifyToken } from '../middlewares/authMiddleware.js';
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const AuthRoutes = () => {
   const router = express.Router();
@@ -12,7 +15,19 @@ const AuthRoutes = () => {
   router.post('/reset-password', resetPassword);
   router.post('/login', login);
   router.get('/user/me', verifyToken, getUserProfile);
-  router.patch('/update-profile', verifyToken, updateProfile);
+  router.patch('/update-profile', verifyToken, upload.single('profilePic'), updateProfile);
+  router.get('/verify-token', verifyToken, (req, res) => {
+    console.log('Verify Token called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({
+      message: 'Token is valid',
+      user: {
+        userId: req.user.userId,
+        isAdmin: req.user.isAdmin,
+        
+      }
+    });
+  });
+
 
   return router;
 };

@@ -2,9 +2,7 @@ import bcrypt from 'bcrypt';
 import User from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
 import { sendEmail } from '../config/mailsend.js';
-import Blog from '../models/blogModel.js'; 
-import { Admin } from 'mongodb';
-import { isAdmin } from '../middlewares/authMiddleware.js';
+import cloudinaryUtils from '../config/cloudinary.js';
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -75,10 +73,10 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: 'Invalid email format' });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'Email already exists' });
     }
 
     // Verify OTP
@@ -174,7 +172,7 @@ export const verifyOtp = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   try {
-    const { email, newPassword, confirmPassword } = req.body;
+    const { email, newPassword } = req.body;
 
     if (!email || !newPassword) {
       return res.status(400).json({ message: 'Email and password are required' });
@@ -183,8 +181,6 @@ export const resetPassword = async (req, res) => {
     if (newPassword.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters long' });
     }
-
-    
 
     // Clean up expired OTPs
     cleanupExpiredOtps();
@@ -252,7 +248,7 @@ export const login = async (req, res) => {
     res.status(200).json({ 
       message: 'User logged in successfully',
       token,
-      user: { username: user.username, email: user.email, isAdmin: user.isAdmin ,profilePic:user.profilePic}  
+      user: { username: user.username,userid:user.id, email: user.email, isAdmin: user.isAdmin, profilePic: user.profilePic }  
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -263,9 +259,25 @@ export const login = async (req, res) => {
 export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId)
-      .select('-password')
-      .populate('savedBlogs', 'title')
-      .populate('likedBlogs', 'title');
+  .select('-password')
+  .populate({
+    path: 'savedBlogs',
+    select: 'title thumbnail createdAt',
+    populate: {
+      path: 'categoryId',
+      select: 'name'
+    }
+  })
+  .populate({
+    path: 'likedBlogs',
+    select: 'title thumbnail createdAt',
+    populate: {
+      path: 'categoryId',
+      select: 'name'
+    },
+    
+  });
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -275,10 +287,10 @@ export const getUserProfile = async (req, res) => {
       username: user.username, 
       email: user.email,
       isAdmin: user.isAdmin,
+      profilePic: user.profilePic,
       savedBlogs: user.savedBlogs,
       likedBlogs: user.likedBlogs,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      
     });
   } catch (error) {
     console.error('Profile fetch error:', error);
@@ -289,7 +301,12 @@ export const getUserProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const { username, email } = req.body;
-    
+    const profilePic = req.file;
+
+    // Log request body for debugging
+    console.log('Update Profile request body:', { username, email });
+    console.log('Profile pic file:', profilePic ? 'Present' : 'Missing');
+
     // Validate inputs
     if (username && username.length < 3) {
       return res.status(400).json({ message: 'Username must be at least 3 characters long' });
@@ -298,21 +315,29 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({ message: 'Invalid email format' });
     }
 
-    // Check for existing username or email
-    const existingUser = await User.findOne({
-      $or: [
-        { username: username, _id: { $ne: req.user.userId } },
-        { email: email, _id: { $ne: req.user.userId } }
-      ]
-    });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Username or email already taken' });
+    // Check for existing email (email must remain unique)
+    if (email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: req.user.userId } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already taken' });
+      }
     }
 
     // Prepare update object
     const updateData = {};
-    if (username) updateData.username = username;
+    if (username) updateData.username = username.trim();
     if (email) updateData.email = email.toLowerCase();
+
+    // Update profile picture if provided
+    if (profilePic) {
+      const profilePicUrl = await cloudinaryUtils.uploadImage(profilePic.buffer, 'profile_pics');
+      updateData.profilePic = profilePicUrl;
+    }
+
+    // Ensure at least one field is provided for update
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No valid fields provided for update' });
+    }
 
     // Update user
     const user = await User.findByIdAndUpdate(
@@ -332,8 +357,8 @@ export const updateProfile = async (req, res) => {
         username: user.username,
         email: user.email,
         isAdmin: user.isAdmin,
-        savedBlogs: user.savedBlogs,
-        likedBlogs: user.likedBlogs
+        profilePic: user.profilePic,
+        
       }
     });
   } catch (error) {

@@ -273,7 +273,7 @@ export const bookmarkBlog = async (req, res) => {
     await Promise.all([blog.save(), user.save()]);
 
     console.log('Bookmark Blog called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    res.Status(200).json({ message: 'Blog bookmarked successfully' });
+    res.status(200).json({ message: 'Blog bookmarked successfully' });
   } catch (error) {
     console.error('Bookmark blog error:', error);
     res.status(500).json({ message: 'Server error bookmarking blog' });

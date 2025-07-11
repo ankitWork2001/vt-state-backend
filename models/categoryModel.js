@@ -4,6 +4,7 @@ const CategoryModel = () => {
   const categorySchema = new Schema({
     name: { type: String, required: true, unique: true, trim: true },
     description: { type: String, trim: true },
+    categoryImage: { type: String, trim: true ,default: '' },
   }, {
     timestamps: true,
   });
