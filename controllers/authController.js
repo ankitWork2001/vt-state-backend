@@ -226,7 +226,46 @@ export const login = async (req, res) => {
     }
 
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email ,isAdmin: false});
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { userId: user._id, isAdmin: user.isAdmin },
+      JWT_SECRET,
+      { expiresIn: '30h' }
+    );
+
+    console.log('Login called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({ 
+      message: 'User logged in successfully',
+      token,
+      user: { username: user.username,userid:user.id, email: user.email, isAdmin: user.isAdmin, profilePic: user.profilePic }  
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+};
+
+export const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    // Find user
+    const user = await User.findOne({ email ,isAdmin: true});
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }

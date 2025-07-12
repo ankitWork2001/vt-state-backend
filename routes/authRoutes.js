@@ -1,5 +1,5 @@
 import express from 'express';
-import { requestOtp, register, login, getUserProfile, updateProfile, forgotPassword, verifyOtp, resetPassword } from '../controllers/authController.js';
+import { requestOtp, register, login, adminLogin,getUserProfile, updateProfile, forgotPassword, verifyOtp, resetPassword } from '../controllers/authController.js';
 import { verifyToken } from '../middlewares/authMiddleware.js';
 import multer from 'multer';
 
@@ -14,6 +14,7 @@ const AuthRoutes = () => {
   router.post('/verify-otp', verifyOtp);
   router.post('/reset-password', resetPassword);
   router.post('/login', login);
+  router.post('/admin/login', adminLogin); 
   router.get('/user/me', verifyToken, getUserProfile);
   router.patch('/update-profile', verifyToken, upload.single('profilePic'), updateProfile);
   router.get('/verify-token', verifyToken, (req, res) => {
