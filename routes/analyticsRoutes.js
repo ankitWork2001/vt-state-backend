@@ -1,16 +1,14 @@
 import express from 'express';
-import { startVisit, endVisit, getWebsiteOverview, getArticleAnalytics } from '../controllers/analyticsController.js';
 import { verifyToken, isAdmin } from '../middlewares/authMiddleware.js';
+import { startVisit, endVisit, getWebsiteOverview, getArticleAnalytics, getPageAnalytics, getBlogs } from '../controllers/analyticsController.js';
 
-const AnalyticsRoutes = () => {
-  const router = express.Router();
+const router = express.Router();
 
-  router.post('/visit/start', startVisit);
-  router.post('/visit/end', endVisit);
-  router.get('/summary', verifyToken, isAdmin, getWebsiteOverview);
-  router.get('/article/:id', verifyToken, isAdmin, getArticleAnalytics);
+router.post('/visit/start', startVisit);
+router.post('/visit/end', endVisit);
+router.get('/summary', verifyToken, isAdmin, getWebsiteOverview);
+router.get('/article/:id', verifyToken, isAdmin, getArticleAnalytics);
+router.get('/page', verifyToken, isAdmin, getPageAnalytics);
+router.get('/blogs', verifyToken, isAdmin, getBlogs); 
 
-  return router;
-};
-
-export default AnalyticsRoutes();
+export default router;
