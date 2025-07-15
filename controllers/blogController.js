@@ -49,7 +49,7 @@ export const createBlog = async (req, res) => {
     const blog = new Blog({
       title: title.trim(),
       content: content.trim(),
-      tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+      tags: tags || [],
       language,
       categoryId,
       subcategoryId: subcategoryId || null,
