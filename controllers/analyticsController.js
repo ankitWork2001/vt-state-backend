@@ -183,7 +183,7 @@ export const getBlogs = async (req, res) => {
     }
 
     // Build query
-    const query = { author: userId }; // Filter by author matching userId
+    const query = { author: userId,isLive:true}; // Filter by author matching userId
     if (category) {
       if (!mongoose.Types.ObjectId.isValid(category)) {
         throw new ApiError(400, "Invalid category ID", ["category must be a valid ObjectId"]);
@@ -265,6 +265,7 @@ export const getBlogs = async (req, res) => {
 
 // Website Overview
 export const getWebsiteOverview = async (req, res) => {
+  const userId = req.user.userId;
   try {
     const BlogModel = mongoose.models.Blog;
     const Newsletter = mongoose.models.Newsletter;
@@ -304,7 +305,7 @@ export const getWebsiteOverview = async (req, res) => {
       }
     ]);
 
-    const totalPosts = await BlogModel.countDocuments();
+    const totalPosts = await BlogModel.countDocuments({ author: userId,isLive: true });
     const newsletters = await Newsletter.countDocuments();
 
     const totalTimeSpent = analytics?.totalTimeSpent || 0;

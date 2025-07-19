@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Blog from '../models/blogModel.js';
 import User from '../models/userModel.js';
 import Category from '../models/categoryModel.js';
@@ -6,14 +7,12 @@ import cloudinaryUtils from '../config/cloudinary.js';
 
 export const createBlog = async (req, res) => {
   try {
-    const { title, content, tags, language, categoryId, subcategoryId } = req.body;
+    const { title, content, tags, language, categoryId, subcategoryId = null } = req.body;
     const thumbnail = req.file;
 
-    // Log request body for debugging
     console.log('Create Blog request body:', { title, content, tags, language, categoryId, subcategoryId });
     console.log('Thumbnail file:', thumbnail ? 'Present' : 'Missing');
 
-    // Validate required fields
     if (!title || !content || !language || !categoryId) {
       return res.status(400).json({ message: 'All required fields (title, content, language, categoryId) must be provided' });
     }
@@ -21,20 +20,17 @@ export const createBlog = async (req, res) => {
       return res.status(400).json({ message: 'Thumbnail file is required' });
     }
 
-    // Validate language
     if (!['English', 'Hindi'].includes(language)) {
       return res.status(400).json({ message: 'Language must be English or Hindi' });
     }
 
-    // Validate categoryId
-    if(categoryId){
+    if (categoryId) {
       const category = await Category.findById(categoryId);
       if (!category) {
         return res.status(400).json({ message: 'Invalid categoryId: Category not found' });
       }
     }
 
-    // Validate subcategoryId if provided
     if (subcategoryId) {
       const subcategory = await Subcategory.findById(subcategoryId);
       if (!subcategory) {
@@ -42,10 +38,8 @@ export const createBlog = async (req, res) => {
       }
     }
 
-    // Upload thumbnail using cloudinary.js
     const thumbnailUrl = await cloudinaryUtils.uploadImage(thumbnail.buffer, 'blog_thumbnails');
 
-    // Create blog
     const blog = new Blog({
       title: title.trim(),
       content: content.trim(),
@@ -54,7 +48,8 @@ export const createBlog = async (req, res) => {
       categoryId,
       subcategoryId: subcategoryId || null,
       thumbnail: thumbnailUrl,
-      author: req.user.userId
+      author: req.user.userId,
+      isLive: true,
     });
 
     await blog.save();
@@ -71,11 +66,9 @@ export const updateBlog = async (req, res) => {
     const { title, content, tags, language, categoryId, subcategoryId } = req.body;
     const thumbnail = req.file;
 
-    // Log request body for debugging
     console.log('Update Blog request body:', { title, content, tags, language, categoryId, subcategoryId });
     console.log('Thumbnail file:', thumbnail ? 'Present' : 'Missing');
 
-    // Fetch the existing blog to validate categoryId
     const blogId = req.params.id;
     const existingBlog = await Blog.findById(blogId);
     if (!existingBlog) {
@@ -93,7 +86,6 @@ export const updateBlog = async (req, res) => {
       updateData.language = language;
     }
 
-    // Validate categoryId (use provided or existing)
     const finalCategoryId = categoryId || existingBlog.categoryId;
     const category = await Category.findById(finalCategoryId);
     if (!category) {
@@ -101,23 +93,23 @@ export const updateBlog = async (req, res) => {
     }
     updateData.categoryId = finalCategoryId;
 
-    // Validate subcategoryId if provided  
-    updateData.subcategoryId = null
-    if (subcategoryId !== null) {
+    if (subcategoryId !== undefined) {
+      if (subcategoryId === null || subcategoryId === '') {
+        updateData.subcategoryId = null;
+      } else {
         const subcategory = await Subcategory.findById(subcategoryId);
         if (!subcategory) {
           return res.status(400).json({ message: 'Invalid subcategoryId: Subcategory not found' });
         }
         updateData.subcategoryId = subcategoryId;
+      }
     }
 
-    // Update thumbnail if provided
     if (thumbnail) {
       const thumbnailUrl = await cloudinaryUtils.uploadImage(thumbnail.buffer, 'blog_thumbnails');
       updateData.thumbnail = thumbnailUrl;
     }
 
-    // Ensure at least one field is provided for update
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ message: 'No valid fields provided for update' });
     }
@@ -126,7 +118,10 @@ export const updateBlog = async (req, res) => {
       req.params.id,
       { $set: updateData },
       { new: true }
-    ).populate('categoryId', 'name').populate('subcategoryId', 'name').populate('author', 'username');
+    )
+      .populate('categoryId', 'name')
+      .populate('subcategoryId', 'name')
+      .populate('author', 'username');
 
     console.log('Update Blog called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     res.status(200).json({ message: 'Blog updated successfully', blog });
@@ -139,7 +134,7 @@ export const updateBlog = async (req, res) => {
 export const getAllBlogs = async (req, res) => {
   try {
     const { category, subcategory, page = 1, limit = 10 } = req.query;
-    const query = {};
+    const query = { isLive: true };
 
     if (category) query.categoryId = category;
     if (subcategory) query.subcategoryId = subcategory;
@@ -148,14 +143,14 @@ export const getAllBlogs = async (req, res) => {
       .populate('categoryId', 'name')
       .populate('subcategoryId', 'name')
       .populate('author', 'username')
+      .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .select('title content thumbnail language createdAt');
 
-    // Trim content to 400 characters
-    const trimmedBlogs = blogs.map(blog => ({
+    const trimmedBlogs = blogs.map((blog) => ({
       ...blog._doc,
-      content: blog.content.length > 400 ? blog.content.substring(0, 400) : blog.content
+      content: blog.content.length > 400 ? blog.content.substring(0, 400) : blog.content,
     }));
 
     const total = await Blog.countDocuments(query);
@@ -166,7 +161,7 @@ export const getAllBlogs = async (req, res) => {
       blogs: trimmedBlogs,
       total,
       page: Number(page),
-      pages: Math.ceil(total / limit)
+      pages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Get all blogs error:', error);
@@ -176,7 +171,11 @@ export const getAllBlogs = async (req, res) => {
 
 export const getBlogById = async (req, res) => {
   try {
-    const blog = await Blog.findById(req.params.id)
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid blog ID format' });
+    }
+
+    const blog = await Blog.findOne({ _id: req.params.id, isLive: true })
       .populate('categoryId', 'name description')
       .populate('subcategoryId', 'name')
       .populate('author', 'username profilePic')
@@ -191,35 +190,40 @@ export const getBlogById = async (req, res) => {
     res.status(200).json({ message: 'Fetched blog', blog });
   } catch (error) {
     console.error('Get blog by ID error:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid blog ID format' });
+    }
     res.status(500).json({ message: 'Server error fetching blog' });
   }
 };
 
 export const deleteBlog = async (req, res) => {
   try {
-    const blog = await Blog.findByIdAndDelete(req.params.id);
+    const blog = await Blog.findById(req.params.id);
     if (!blog) {
       return res.status(404).json({ message: 'Blog not found' });
     }
 
-    // Remove blog from users' likedBlogs and savedBlogs
+    blog.isLive = false;
+    await blog.save();
+
     await User.updateMany(
       { $or: [{ likedBlogs: blog._id }, { savedBlogs: blog._id }] },
       { $pull: { likedBlogs: blog._id, savedBlogs: blog._id } }
     );
 
-    console.log('Delete Blog called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-    res.status(200).json({ message: 'Blog deleted successfully' });
+    console.log('Delete Blog called at (set isLive: false)', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({ message: 'Blog marked as not live successfully' });
   } catch (error) {
     console.error('Delete blog error:', error);
-    res.status(500).json({ message: 'Server error deleting blog' });
+    res.status(500).json({ message: 'Server error marking blog as not live' });
   }
 };
 
 export const likeBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
-    if (!blog) {
+    if (!blog || !blog.isLive) {
       return res.status(404).json({ message: 'Blog not found' });
     }
 
@@ -227,7 +231,6 @@ export const likeBlog = async (req, res) => {
     const user = await User.findById(userId);
 
     if (blog.likes.includes(userId)) {
-      // Unlike the blog
       blog.likes.pull(userId);
       user.likedBlogs.pull(blog._id);
       await Promise.all([blog.save(), user.save()]);
@@ -235,7 +238,6 @@ export const likeBlog = async (req, res) => {
       return res.status(200).json({ message: 'Blog unliked successfully' });
     }
 
-    // Like the blog
     blog.likes.push(userId);
     user.likedBlogs.push(blog._id);
     await Promise.all([blog.save(), user.save()]);
@@ -251,7 +253,7 @@ export const likeBlog = async (req, res) => {
 export const bookmarkBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
-    if (!blog) {
+    if (!blog || !blog.isLive) {
       return res.status(404).json({ message: 'Blog not found' });
     }
 
@@ -259,7 +261,6 @@ export const bookmarkBlog = async (req, res) => {
     const user = await User.findById(userId);
 
     if (blog.bookmarks.includes(userId)) {
-      // Unbookmark the blog
       blog.bookmarks.pull(userId);
       user.savedBlogs.pull(blog._id);
       await Promise.all([blog.save(), user.save()]);
@@ -267,7 +268,6 @@ export const bookmarkBlog = async (req, res) => {
       return res.status(200).json({ message: 'Blog unbookmarked successfully' });
     }
 
-    // Bookmark the blog
     blog.bookmarks.push(userId);
     user.savedBlogs.push(blog._id);
     await Promise.all([blog.save(), user.save()]);
@@ -282,16 +282,16 @@ export const bookmarkBlog = async (req, res) => {
 
 export const getSavedBlogs = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId)
-      .populate({
-        path: 'savedBlogs',
-        select: 'title thumbnail language createdAt',
-        populate: [
-          { path: 'categoryId', select: 'name' },
-          { path: 'subcategoryId', select: 'name' },
-          { path: 'author', select: 'username' }
-        ]
-      });
+    const user = await User.findById(req.user.userId).populate({
+      path: 'savedBlogs',
+      match: { isLive: true },
+      select: 'title thumbnail language createdAt',
+      populate: [
+        { path: 'categoryId', select: 'name' },
+        { path: 'subcategoryId', select: 'name' },
+        { path: 'author', select: 'username' },
+      ],
+    });
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -302,5 +302,25 @@ export const getSavedBlogs = async (req, res) => {
   } catch (error) {
     console.error('Get saved blogs error:', error);
     res.status(500).json({ message: 'Server error fetching saved blogs' });
+  }
+};
+
+export const setAllBlogsIsLive = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ message: 'Unauthorized: Admin access required' });
+    }
+
+    const result = await Blog.updateMany({}, { $set: { isLive: true } });
+    console.log('Set All Blogs IsLive called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(200).json({
+      message: 'All blogs updated to isLive: true',
+      modifiedCount: result.modifiedCount,
+      matchedCount: result.matchedCount,
+    });
+  } catch (error) {
+    console.error('Set all blogs isLive error:', error);
+    res.status(500).json({ message: 'Server error updating blogs' });
   }
 };

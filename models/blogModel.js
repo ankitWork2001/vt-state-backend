@@ -12,6 +12,7 @@ const BlogModel = () => {
     author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     bookmarks: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    isLive: { type: Boolean, default: true }
   }, {
     timestamps: true,
   });

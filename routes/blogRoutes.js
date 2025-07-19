@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { createBlog, getAllBlogs, getBlogById, updateBlog, deleteBlog, likeBlog, bookmarkBlog, getSavedBlogs } from '../controllers/blogController.js';
+import { createBlog, getAllBlogs, getBlogById, updateBlog, deleteBlog, likeBlog, bookmarkBlog, getSavedBlogs, setAllBlogsIsLive } from '../controllers/blogController.js';
 import { verifyToken, isAdmin } from '../middlewares/authMiddleware.js';
 
 const RouteTemplate = () => {
@@ -10,6 +10,7 @@ const RouteTemplate = () => {
   router.post('/', verifyToken, isAdmin, upload.single('thumbnail'), createBlog);
   router.get('/', getAllBlogs);
   router.get('/:id', getBlogById);
+  router.put('/set-all-isLive', verifyToken, isAdmin, setAllBlogsIsLive); // Moved before /:id
   router.put('/:id', verifyToken, isAdmin, upload.single('thumbnail'), updateBlog);
   router.delete('/:id', verifyToken, isAdmin, deleteBlog);
   router.post('/:id/like', verifyToken, likeBlog);
