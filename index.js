@@ -12,14 +12,16 @@ import newsletterRoutes from './routes/newsletterRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const app = express();
 
 /// Middleware
 app.use(helmet());
 app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true
+  origin: process.env.CLIENT_URL,
+  credentials: true,
 }));
 app.use(limiter);
 app.use(express.json());
