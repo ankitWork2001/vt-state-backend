@@ -15,16 +15,16 @@ import uploadRoutes from './routes/uploadRoutes.js';
 
 const app = express();
 
-// Middleware
+/// Middleware
 app.use(helmet());
 app.use(cors({
   origin: 'http://localhost:3000',
-  credentials: true,               
+  credentials: true
 }));
-
 app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 
 // Routes
 app.use('/api/auth', authRoutes);
