@@ -405,3 +405,46 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: 'Server error updating profile' });
   }
 };
+
+export const registerAdmin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // Create admin user
+    const username = email.split('@')[0]; // Generate username from email
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      isAdmin: true
+    });
+
+    await user.save();
+
+    console.log('Register Admin called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    res.status(201).json({ message: 'Admin registered successfully' });
+  } catch (error) {
+    console.error('Admin registration error:', error);
+    res.status(500).json({ message: 'Server error during admin registration' });
+  }
+};

@@ -1,6 +1,6 @@
 import express from 'express';
-import { requestOtp, register, login, adminLogin,getUserProfile, updateProfile, forgotPassword, verifyOtp, resetPassword } from '../controllers/authController.js';
-import { verifyToken } from '../middlewares/authMiddleware.js';
+import { requestOtp, register, login, adminLogin, getUserProfile, updateProfile, forgotPassword, verifyOtp, resetPassword, registerAdmin } from '../controllers/authController.js';
+import { verifyToken, isAdmin } from '../middlewares/authMiddleware.js';
 import multer from 'multer';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -10,6 +10,7 @@ const AuthRoutes = () => {
 
   router.post('/request-otp', requestOtp);
   router.post('/register', register);
+  router.post('/register-admin',verifyToken,isAdmin, registerAdmin);
   router.post('/forgot-password', forgotPassword);
   router.post('/verify-otp', verifyOtp);
   router.post('/reset-password', resetPassword);
@@ -28,7 +29,6 @@ const AuthRoutes = () => {
       }
     });
   });
-
 
   return router;
 };
