@@ -16,8 +16,8 @@ export const createCategory = async (req, res) => {
     console.log('Create Category request:', { name, description, categoryImage: categoryImage ? 'Present' : 'Missing' });
 
     // Validate input
-    if (!name || !description || !categoryImage) {
-      const error = new ApiError(400, "Name, description, and category image are required");
+    if (!name || !description) {
+      const error = new ApiError(400, "Name and description are required");
       return res
         .status(error.statusCode)
         .json(new ApiResponse(error.statusCode, error.message));
@@ -32,15 +32,21 @@ export const createCategory = async (req, res) => {
         .json(new ApiResponse(error.statusCode, error.message));
     }
 
-    // Upload category image to Cloudinary
-    const categoryImageUrl = await cloudinaryUtils.uploadImage(categoryImage.buffer, 'category_images');
-
-    // Create new category
-    const newCategory = new CategoryModel({
+    // Prepare category data
+    const categoryData = {
       name: name.trim(),
       description: description.trim(),
-      categoryImage: categoryImageUrl
-    });
+      categoryImage: '', // Default value if no image is provided
+    };
+
+    // Upload category image to Cloudinary if provided
+    if (categoryImage) {
+      const categoryImageUrl = await cloudinaryUtils.uploadImage(categoryImage.buffer, 'category_images');
+      categoryData.categoryImage = categoryImageUrl;
+    }
+
+    // Create new category
+    const newCategory = new CategoryModel(categoryData);
 
     // Save the new category to the database
     await newCategory.save();
@@ -211,7 +217,7 @@ export const updateCategory = async (req, res) => {
     }
 
     // Ensure at least one field is provided for update
-    if (Object.keys(updateData).length === 0) {
+    if (!name && !description && !categoryImage) {
       const error = new ApiError(400, "At least one field (name, description, or category image) must be provided");
       return res
         .status(error.statusCode)
