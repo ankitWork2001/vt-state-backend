@@ -38,7 +38,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/upload', uploadRoutes);
 
-app.get('/test', (req, res) => {
+app.get('/', (req, res) => {
   res.status(200).json({ message: 'API is working' });
 });
 // Database Connection and Server Start
