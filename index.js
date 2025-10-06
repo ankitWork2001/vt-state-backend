@@ -19,10 +19,27 @@ const app = express();
 
 /// Middleware
 app.use(helmet());
+
+const allowedOrigins = [
+  "http://localhost:3000",       // dev
+  "https://mindful-path.onrender.com", // prod
+];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
 }));
+
+// app.use(cors({
+//   origin: process.env.CLIENT_URL,
+//   credentials: true,
+// }));
 app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
