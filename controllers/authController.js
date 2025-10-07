@@ -39,7 +39,7 @@ export const requestOtp = async (req, res) => {
 
     // Generate and store OTP
     // const otp = generateOtp();
-    const otp = 12345;
+    const otp = 123456;
     const expires = Date.now() + OTP_VALIDITY;
     otpStore.set(email, { otp, expires });
 
