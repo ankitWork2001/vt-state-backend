@@ -40,8 +40,8 @@ export const requestOtp = async (req, res) => {
     // Generate and store OTP
     // const otp = generateOtp();
     const otp = 123456;
-    const expires = Date.now() + OTP_VALIDITY;
-    otpStore.set(email, { otp, expires });
+    // const expires = Date.now() + OTP_VALIDITY;
+    // otpStore.set(email, { otp, expires });
 
     // Send OTP email
     // const subject = 'Verify Your Email';
@@ -81,10 +81,10 @@ export const register = async (req, res) => {
     }
 
     // Verify OTP
-    const storedOtpData = otpStore.get(email);
-    if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
-    }
+    // const storedOtpData = otpStore.get(email);
+    // if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
+    //   return res.status(400).json({ message: 'Invalid or expired OTP' });
+    // }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
