@@ -59,7 +59,7 @@ export const register = async (req, res) => {
   try {
     const { username, email, password, otp } = req.body;
 
-    if (!username || !email || !password || !otp) {
+    if (!username || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -80,10 +80,10 @@ export const register = async (req, res) => {
     }
 
     // Verify OTP
-    const storedOtpData = otpStore.get(email);
-    if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
-    }
+    // const storedOtpData = otpStore.get(email);
+    // if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
+    //   return res.status(400).json({ message: 'Invalid or expired OTP' });
+    // }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -98,9 +98,9 @@ export const register = async (req, res) => {
     await user.save();
 
     // Clear OTP
-    otpStore.delete(email);
+    // otpStore.delete(email);
 
-    console.log('Register called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    // console.log('Register called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
     console.error('Registration error:', error);
