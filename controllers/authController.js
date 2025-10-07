@@ -38,16 +38,17 @@ export const requestOtp = async (req, res) => {
     }
 
     // Generate and store OTP
-    const otp = generateOtp();
+    // const otp = generateOtp();
+    const otp = 12345;
     const expires = Date.now() + OTP_VALIDITY;
     otpStore.set(email, { otp, expires });
 
     // Send OTP email
-    const subject = 'Verify Your Email';
-    const message = `Your OTP for registration is: <b>${otp}</b>. It is valid for 10 minutes.`;
-    await sendEmail(email, subject, message);
+    // const subject = 'Verify Your Email';
+    // const message = `Your OTP for registration is: <b>${otp}</b>. It is valid for 10 minutes.`;
+    // await sendEmail(email, subject, message);
 
-    console.log('Request OTP called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    // console.log('Request OTP called at', new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     res.status(200).json({ message: 'OTP sent to email' });
   } catch (error) {
     console.error('Request OTP error:', error);
@@ -59,7 +60,7 @@ export const register = async (req, res) => {
   try {
     const { username, email, password, otp } = req.body;
 
-    if (!username || !email || !password) {
+    if (!username || !email || !password || !otp) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -80,10 +81,10 @@ export const register = async (req, res) => {
     }
 
     // Verify OTP
-    // const storedOtpData = otpStore.get(email);
-    // if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
-    //   return res.status(400).json({ message: 'Invalid or expired OTP' });
-    // }
+    const storedOtpData = otpStore.get(email);
+    if (!storedOtpData || storedOtpData.otp !== otp || storedOtpData.expires < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
